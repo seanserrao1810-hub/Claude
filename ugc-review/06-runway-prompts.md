@@ -4,19 +4,66 @@ For generating the UGC clip in Runway when a live creator shoot isn't available.
 
 ## Required input
 
-A **publicly fetchable** image of the tee. The Shopify storefront
-(`nwbqt1-e6.myshopify.com`) returns 403 to automated requests, so the product
-page itself can't be scraped.
+A **publicly fetchable** image of the tee. The Shopify storefront returns 403 to
+automated requests, so the `/products/...` page itself can't be scraped.
 
 **The workaround:** Shopify's CDN serves images publicly even when the storefront
 is password-protected. On the product page, right-click the image →
-*Copy image address*. The result looks like:
+*Copy image address*. The confirmed working URL for this product:
 
 ```
-https://cdn.shopify.com/s/files/1/xxxx/xxxx/files/<name>.jpg?v=1234567890
+https://pisvwd-v0.myshopify.com/cdn/shop/files/WhatsAppImage2026-07-12at16.11.38_2.jpg?v=1785116548&width=1600
 ```
 
-That URL will work. The `/products/...` page URL will not.
+## Model availability
+
+The connected Runway workspace is on the **free tier**, which means:
+
+- ✅ `gen-4-turbo` — image-to-video only, needs a `startFrame`
+- ❌ `seedance-2` — not available (this is what the prompts below were written for)
+- ❌ `generate_multishot_video`, `upscale_image`, `upscale_video` — paid only
+
+On `gen-4-turbo`, use ratio `720:1280` for vertical (not `9:16`), and note it has
+no `referenceImages` support — every shot must start from an actual image.
+
+Upgrading the workspace unlocks the richer prompts as written.
+
+## ⚠️ The hostname trap — read before generating
+
+Passing the Shopify CDN URL straight to `generate_video` **fails**:
+
+```
+FAILED — "URL hostname is not in allowed hostnames"
+```
+
+The video models enforce a hostname allowlist that does not include custom
+`*.myshopify.com` subdomains. Confusingly, `generate_image` has **no such
+restriction** and accepts the same URL without complaint — so the product image
+works fine for stills and dies on video.
+
+**The two-step workaround, confirmed working:**
+
+1. `generate_image` with the Shopify URL in `referenceImages` → returns a
+   Runway-hosted artifact URL on `dnznrvs05pmza.cloudfront.net`.
+2. Pass *that* URL as `startFrame` to `generate_video`. Runway's own artifact
+   host is always allowlisted.
+
+This has the side benefit of letting you approve each still before spending
+video credits on it — worth doing even once the hostname issue is moot.
+
+## Verification status
+
+| Asset | Status |
+|---|---|
+| Try-on still | ✅ Generated |
+| Hanger/window still | ✅ Generated |
+| Collar macro still | ❌ Blocked — workspace limit |
+| All video clips | ❌ Blocked — workspace limit |
+
+The stills were generated but **not visually verified** — this container's
+network policy blocks Runway's CDN, so the images could not be pulled back and
+inspected. Check them before using: AI garbles small text, so the `FEESBEES`
+wordmark is the first thing to look at, followed by the exact green.
 
 ---
 
